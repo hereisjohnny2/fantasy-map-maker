@@ -23,12 +23,20 @@ Open <http://localhost:8000/tests.html> to run the built-in assertion suite for 
 
 ## Deploy to GitHub Pages
 
-1. Push this repository to GitHub.
-2. **Settings > Pages > Build and deployment**, choose **Deploy from a branch**.
-3. Pick your default branch and the **`/ (root)`** folder, then **Save**.
+This repo includes [`.github/workflows/pages.yml`](.github/workflows/pages.yml), which publishes the
+site on every push to `main` (or manually via **Actions > Deploy to GitHub Pages > Run workflow**).
 
-No workflow or build is required. Every asset path is relative, so the app works both at
-`user.github.io` and at a project subpath like `user.github.io/fantasy-map-maker/`.
+1. Push this repository to GitHub.
+2. **Settings > Pages > Build and deployment**, set **Source** to **GitHub Actions**.
+3. Push to `main` (or trigger the workflow manually) and wait for the run to finish; the deployed
+   URL shows up in the workflow run summary and on the **Settings > Pages** screen.
+
+No build step runs in the workflow - it just uploads the repository as-is. Every asset path is
+relative, so the app works both at `user.github.io` and at a project subpath like
+`user.github.io/fantasy-map-maker/`.
+
+Prefer the simpler **Deploy from a branch** source instead? Every asset path is already relative,
+so pointing it at your default branch's **`/ (root)`** folder works too, with no workflow needed.
 
 ## Controls
 
