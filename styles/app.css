@@ -416,11 +416,6 @@ code {
   overflow: hidden;
 }
 
-.stage.drop-target {
-  outline: 3px dashed #d8ae65;
-  outline-offset: -8px;
-}
-
 #map {
   display: block;
   width: 100%;

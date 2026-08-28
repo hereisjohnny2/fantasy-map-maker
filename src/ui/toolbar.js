@@ -3,14 +3,13 @@
  * line. Tool option sections declare which tools they belong to with
  * `data-tool-options`, so adding a tool never means touching layout code.
  */
-import { listTextures } from "../brush/textures.js";
 import { elementsPerDrop } from "../brush/scatter.js";
 import { SYMBOLS, layerForSymbol } from "../brush/symbols.js";
 import { requestRender } from "../render/renderer.js";
 import { fit, view, zoomAt } from "../render/view.js";
 import { history } from "../state/history.js";
 import { FONT_FAMILIES, MARKER_TYPES, emit, getLayerMeta, on, setStatus, setTool, state } from "../state/store.js";
-import { addFontFromFile, addTextureFromFile } from "../io/textureLoader.js";
+import { addFontFromFile } from "../io/textureLoader.js";
 import { titleCase } from "../gen/nameGen.js";
 
 const $ = (id) => document.getElementById(id);
@@ -22,20 +21,6 @@ function syncToolButtons() {
   for (const section of document.querySelectorAll("[data-tool-options]")) {
     section.hidden = !section.dataset.toolOptions.split(/\s+/).includes(state.tool);
   }
-}
-
-export function refreshTextureOptions() {
-  const select = $("brush-texture");
-  const options = listTextures(state.customTextures);
-  select.innerHTML = "";
-  for (const option of options) {
-    const element = document.createElement("option");
-    element.value = option.id;
-    element.textContent = option.label;
-    select.append(element);
-  }
-  if (!options.some((option) => option.id === state.brush.textureId)) state.brush.textureId = "auto";
-  select.value = state.brush.textureId;
 }
 
 export function refreshFontOptions() {
@@ -64,13 +49,12 @@ function updateScatterEstimate() {
 
 /** Push current state values into the toolbar widgets. */
 export function syncToolbar() {
-  $("brush-size").value = String(state.brush.size);
-  $("brush-size-value").value = `${state.brush.size} px`;
-  $("brush-opacity").value = String(Math.round(state.brush.opacity * 100));
-  $("brush-opacity-value").value = `${Math.round(state.brush.opacity * 100)}%`;
-  $("brush-hardness").value = String(Math.round(state.brush.hardness * 100));
-  $("brush-hardness-value").value = `${Math.round(state.brush.hardness * 100)}%`;
-  $("brush-name-stroke").checked = state.brush.nameStroke;
+  $("eraser-size").value = String(state.eraser.size);
+  $("eraser-size-value").value = `${state.eraser.size} px`;
+  $("eraser-opacity").value = String(Math.round(state.eraser.opacity * 100));
+  $("eraser-opacity-value").value = `${Math.round(state.eraser.opacity * 100)}%`;
+  $("eraser-hardness").value = String(Math.round(state.eraser.hardness * 100));
+  $("eraser-hardness-value").value = `${Math.round(state.eraser.hardness * 100)}%`;
   $("scatter-symbol").value = state.scatter.symbol;
   $("scatter-density").value = String(state.scatter.density);
   $("scatter-density-value").value = String(state.scatter.density);
@@ -88,7 +72,6 @@ export function syncToolbar() {
   $("compass-style").value = state.compass.style;
   $("text-size").value = String(state.text.size);
   $("text-size-value").value = `${state.text.size} px`;
-  refreshTextureOptions();
   refreshFontOptions();
   syncToolButtons();
 }
@@ -114,23 +97,17 @@ export function initToolbar() {
     button.addEventListener("click", () => setTool(button.dataset.tool));
   }
 
-  $("brush-size").addEventListener("input", (event) => {
-    state.brush.size = Number(event.target.value);
-    $("brush-size-value").value = `${state.brush.size} px`;
+  $("eraser-size").addEventListener("input", (event) => {
+    state.eraser.size = Number(event.target.value);
+    $("eraser-size-value").value = `${state.eraser.size} px`;
   });
-  $("brush-opacity").addEventListener("input", (event) => {
-    state.brush.opacity = Number(event.target.value) / 100;
-    $("brush-opacity-value").value = `${event.target.value}%`;
+  $("eraser-opacity").addEventListener("input", (event) => {
+    state.eraser.opacity = Number(event.target.value) / 100;
+    $("eraser-opacity-value").value = `${event.target.value}%`;
   });
-  $("brush-hardness").addEventListener("input", (event) => {
-    state.brush.hardness = Number(event.target.value) / 100;
-    $("brush-hardness-value").value = `${event.target.value}%`;
-  });
-  $("brush-name-stroke").addEventListener("change", (event) => {
-    state.brush.nameStroke = event.target.checked;
-  });
-  $("brush-texture").addEventListener("change", (event) => {
-    state.brush.textureId = event.target.value;
+  $("eraser-hardness").addEventListener("input", (event) => {
+    state.eraser.hardness = Number(event.target.value) / 100;
+    $("eraser-hardness-value").value = `${event.target.value}%`;
   });
 
   $("scatter-symbol").addEventListener("change", (event) => {
@@ -173,21 +150,6 @@ export function initToolbar() {
   $("text-size").addEventListener("input", (event) => {
     state.text.size = Number(event.target.value);
     $("text-size-value").value = `${state.text.size} px`;
-  });
-
-  $("texture-files").addEventListener("change", async (event) => {
-    const files = [...event.target.files];
-    event.target.value = "";
-    for (const file of files) {
-      try {
-        const texture = await addTextureFromFile(file);
-        state.brush.textureId = texture.id;
-        refreshTextureOptions();
-        setStatus(`Loaded texture "${texture.name}".`);
-      } catch (error) {
-        setStatus(`Could not load ${file.name}: ${error.message}`, "error");
-      }
-    }
   });
 
   $("font-file").addEventListener("change", async (event) => {

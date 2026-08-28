@@ -8,13 +8,11 @@
  */
 import { periodicFbm } from "../gen/noise.js";
 import { createRng } from "../gen/rng.js";
-import { TERRAIN_LAYERS } from "../state/store.js";
 
 const TILE = 192;
 const NOISE_CELLS = 6;
 
 const generated = new Map();
-const custom = new Map();
 
 const TERRAIN_STYLE = {
   land: { base: "#dcc78f", light: "#e9d9a9", dark: "#c3ab74", ink: "#8b7446" },
@@ -89,7 +87,7 @@ function wavyLine(ctx, x, y, length, amplitude, steps = 8) {
 function buildOcean() {
   const canvas = makeTile();
   const ctx = canvas.getContext("2d");
-  const style = { base: "#e7d7ae", light: "#f2e5c4", dark: "#cdb989", ink: "#8f7f5c" };
+  const style = { base: "#3d6f92", light: "#5c8fb3", dark: "#2a4f6b", ink: "#1b3547" };
   paintGrain(ctx, style, 4211, 0.55);
 
   const rng = createRng("ocean-hatch");
@@ -239,42 +237,4 @@ export function getTerrainTexture(layerId) {
   const key = `terrain:${layerId}`;
   if (!generated.has(key)) generated.set(key, buildTerrain(layerId));
   return generated.get(key);
-}
-
-/** Register a user-supplied image (already decoded) as a brush texture. */
-export function registerCustomTexture(id, image) {
-  const canvas = document.createElement("canvas");
-  canvas.width = image.naturalWidth || image.width;
-  canvas.height = image.naturalHeight || image.height;
-  canvas.getContext("2d").drawImage(image, 0, 0);
-  custom.set(id, canvas);
-  return canvas;
-}
-
-export function hasCustomTexture(id) {
-  return custom.has(id);
-}
-
-export function clearCustomTextures() {
-  custom.clear();
-}
-
-/**
- * Resolve a brush texture id to a canvas.
- * `auto` follows the layer being painted; `terrain:<id>` pins a terrain style.
- */
-export function resolveTexture(textureId, layerId) {
-  if (!textureId || textureId === "auto") return getTerrainTexture(layerId);
-  if (custom.has(textureId)) return custom.get(textureId);
-  if (textureId.startsWith("terrain:")) return getTerrainTexture(textureId.slice(8));
-  return getTerrainTexture(layerId);
-}
-
-/** Options for the texture picker, including any loaded custom textures. */
-export function listTextures(customTextures = []) {
-  return [
-    { id: "auto", label: "Match active layer" },
-    ...TERRAIN_LAYERS.map((layer) => ({ id: `terrain:${layer.id}`, label: `${layer.label} texture` })),
-    ...customTextures.map((texture) => ({ id: texture.id, label: texture.name })),
-  ];
 }

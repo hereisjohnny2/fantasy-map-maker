@@ -28,35 +28,25 @@
       <section>
         <h2 id="tools-heading">Tools</h2>
         <div class="tool-grid" role="toolbar" aria-labelledby="tools-heading">
-          <button class="tool" data-tool="paint" type="button" aria-pressed="true">Brush <kbd>B</kbd></button>
           <button class="tool" data-tool="scatter" type="button" aria-pressed="false">Scatter <kbd>S</kbd></button>
           <button class="tool" data-tool="eraser" type="button" aria-pressed="false">Eraser <kbd>E</kbd></button>
           <button class="tool" data-tool="text" type="button" aria-pressed="false">Text <kbd>T</kbd></button>
           <button class="tool" data-tool="marker" type="button" aria-pressed="false">Marker <kbd>M</kbd></button>
           <button class="tool" data-tool="path" type="button" aria-pressed="false">Path <kbd>P</kbd></button>
           <button class="tool" data-tool="compass" type="button" aria-pressed="false">Compass <kbd>C</kbd></button>
-          <button class="tool" data-tool="select" type="button" aria-pressed="false">Select <kbd>V</kbd></button>
+          <button class="tool" data-tool="select" type="button" aria-pressed="true">Select <kbd>V</kbd></button>
           <button class="tool" data-tool="hand" type="button" aria-pressed="false">Hand <kbd>H</kbd></button>
         </div>
       </section>
 
-      <section data-tool-options="paint eraser">
-        <h2>Brush options</h2>
-        <label for="brush-texture">Texture</label>
-        <select id="brush-texture"></select>
-        <label for="brush-size">Size <output id="brush-size-value">90 px</output></label>
-        <input id="brush-size" type="range" min="4" max="600" step="1" value="90">
-        <label for="brush-opacity">Opacity <output id="brush-opacity-value">85%</output></label>
-        <input id="brush-opacity" type="range" min="1" max="100" step="1" value="85">
-        <label for="brush-hardness">Hardness <output id="brush-hardness-value">55%</output></label>
-        <input id="brush-hardness" type="range" min="0" max="100" step="1" value="55">
-        <p class="check"><input id="brush-name-stroke" type="checkbox"><label for="brush-name-stroke">Name this stroke</label></p>
-        <p class="file-row">
-          <label class="file-button" for="texture-files">Load texture files
-            <input id="texture-files" type="file" accept="image/png,image/jpeg" multiple>
-          </label>
-        </p>
-        <p class="hint">PNG or JPEG files can also be dropped straight onto the map.</p>
+      <section data-tool-options="eraser" hidden>
+        <h2>Eraser options</h2>
+        <label for="eraser-size">Size <output id="eraser-size-value">90 px</output></label>
+        <input id="eraser-size" type="range" min="4" max="600" step="1" value="90">
+        <label for="eraser-opacity">Opacity <output id="eraser-opacity-value">85%</output></label>
+        <input id="eraser-opacity" type="range" min="1" max="100" step="1" value="85">
+        <label for="eraser-hardness">Hardness <output id="eraser-hardness-value">55%</output></label>
+        <input id="eraser-hardness" type="range" min="0" max="100" step="1" value="55">
       </section>
 
       <section data-tool-options="scatter" hidden>
@@ -72,7 +62,7 @@
         <label for="scatter-jitter">Size variation <output id="scatter-jitter-value">45%</output></label>
         <input id="scatter-jitter" type="range" min="0" max="100" step="1" value="45">
         <p id="scatter-estimate" class="hint"></p>
-        <p class="hint">Click to drop one cluster, or drag to lay a band at the same density. Elements bake into the layer shown under <em>Painting into</em>, so the Eraser removes them.</p>
+        <p class="hint">Click to drop one cluster, or drag to lay a band at the same density. Elements bake into the layer shown under <em>Active layer</em>, so the Eraser removes them.</p>
       </section>
 
       <section data-tool-options="marker" hidden>
@@ -155,7 +145,7 @@
       <section>
         <h2>Layers</h2>
         <div id="layers-panel" class="layers"></div>
-        <label for="active-layer">Painting into</label>
+        <label for="active-layer">Active layer</label>
         <select id="active-layer"></select>
       </section>
 
@@ -219,7 +209,7 @@
   <dialog id="dialog-project">
     <form method="dialog">
       <h2>Save or load</h2>
-      <p class="hint">A <code>.fmap</code> file stores the title, size, view, terrain rasters, objects, legend, custom textures, grid and seed.</p>
+      <p class="hint">A <code>.fmap</code> file stores the title, size, view, terrain rasters, objects, legend, custom fonts, grid and seed.</p>
       <menu>
         <button value="cancel">Close</button>
         <label class="file-button" for="project-file">Load .fmap

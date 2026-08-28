@@ -5,10 +5,8 @@
  * registry, document-level actions (new / reset / generate / resize) and the
  * autosave loop. Everything else is a module it wires together.
  */
-import { clearCustomTextures } from "./brush/textures.js";
 import { generateTerrain } from "./gen/terrainGen.js";
 import { applyDocument, serializeDocument } from "./io/projectFile.js";
-import { loadTexturePackManifest } from "./io/textureLoader.js";
 import {
   invalidateCoastline, rebuildCoastline, setCoastlineListener,
 } from "./render/coastline.js";
@@ -27,7 +25,6 @@ import { compassTool } from "./tools/compass.js";
 import { eraserTool } from "./tools/eraser.js";
 import { handTool } from "./tools/hand.js";
 import { markerTool } from "./tools/marker.js";
-import { paintTool } from "./tools/paint.js";
 import { cancelDraftPath, finishDraftPath, hasDraftPath, pathTool } from "./tools/path.js";
 import { scatterTool } from "./tools/scatter.js";
 import { selectTool } from "./tools/select.js";
@@ -40,13 +37,12 @@ import { initInspector } from "./ui/inspector.js";
 import { initLayersPanel } from "./ui/layersPanel.js";
 import { initLegendPanel } from "./ui/legendPanel.js";
 import { initTitlebar } from "./ui/titlebar.js";
-import { initToolbar, refreshTextureOptions } from "./ui/toolbar.js";
+import { initToolbar } from "./ui/toolbar.js";
 
 const canvas = document.getElementById("map");
 const stage = document.getElementById("stage");
 
 const tools = {
-  paint: paintTool,
   scatter: scatterTool,
   eraser: eraserTool,
   text: textTool,
@@ -56,9 +52,9 @@ const tools = {
   select: selectTool,
   hand: handTool,
 };
-const EDITING_TOOLS = new Set(["paint", "scatter", "eraser", "text", "marker", "path", "compass"]);
+const EDITING_TOOLS = new Set(["scatter", "eraser", "text", "marker", "path", "compass"]);
 
-let activeTool = tools.paint;
+let activeTool = tools.select;
 const pointers = new Map();
 let panSession = null;
 let pinchSession = null;
@@ -118,7 +114,6 @@ function newMap() {
     fresh.tool = state.tool;
     replaceState(fresh);
     clearAllLayers();
-    clearCustomTextures();
     invalidateCoastline();
     emit("document");
     emit("layers");
@@ -334,7 +329,7 @@ function onDoubleClick(event) {
 
 /* --------------------------------------------------------------- keyboard */
 
-const TOOL_KEYS = { b: "paint", s: "scatter", e: "eraser", t: "text", m: "marker", p: "path", c: "compass", v: "select", h: "hand" };
+const TOOL_KEYS = { s: "scatter", e: "eraser", t: "text", m: "marker", p: "path", c: "compass", v: "select", h: "hand" };
 
 function onKeyDown(event) {
   const typing = isTypingTarget(event.target);
@@ -431,7 +426,7 @@ function initCanvas() {
   setOverlayPainter((ctx) => {
     activeTool.drawOverlay?.(ctx);
     const selected = getObject(state.selectedId);
-    if (selected && isObjectVisible(selected) && !["paint", "eraser", "scatter"].includes(activeTool.id)) {
+    if (selected && isObjectVisible(selected) && !["eraser", "scatter"].includes(activeTool.id)) {
       drawSelectionChrome(ctx, selected);
     }
   });
@@ -463,36 +458,6 @@ function initTextOverlay() {
       event.preventDefault();
       applyTextEditor();
       canvas.focus();
-    }
-  });
-}
-
-function initDropTarget() {
-  const stop = (event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-  };
-  stage.addEventListener("dragenter", (event) => {
-    stop(event);
-    stage.classList.add("drop-target");
-  });
-  stage.addEventListener("dragover", stop);
-  stage.addEventListener("dragleave", (event) => {
-    if (event.target === stage) stage.classList.remove("drop-target");
-  });
-  stage.addEventListener("drop", async (event) => {
-    event.preventDefault();
-    stage.classList.remove("drop-target");
-    const { addTextureFromFile } = await import("./io/textureLoader.js");
-    for (const file of event.dataTransfer.files) {
-      try {
-        const texture = await addTextureFromFile(file);
-        state.brush.textureId = texture.id;
-        refreshTextureOptions();
-        setStatus(`Loaded texture "${texture.name}".`);
-      } catch (error) {
-        setStatus(`Could not load ${file.name}: ${error.message}`, "error");
-      }
     }
   });
 }
@@ -532,7 +497,6 @@ async function boot() {
   initLegendPanel();
   initDialogs({ generate, applySize });
   initTextOverlay();
-  initDropTarget();
 
   on("tool", activateTool);
   on("change", ({ topic }) => {
@@ -546,17 +510,11 @@ async function boot() {
   fit(state.map.width, state.map.height);
   requestRender();
 
-  const packs = await loadTexturePackManifest();
-  if (packs.length) {
-    refreshTextureOptions();
-    setStatus(`Loaded ${packs.length} texture pack image(s).`);
-  }
-
   const restored = await offerRestore();
   if (!restored) {
     fit(state.map.width, state.map.height);
     requestRender();
-    setStatus("Blank ocean ready. Pick a terrain layer and paint, or generate a landmass.");
+    setStatus("Blank ocean ready. Generate a landmass, or scatter elements once you have land.");
   }
 }
 
