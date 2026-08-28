@@ -1,9 +1,9 @@
 # Fantasy Map Maker
 
 A browser-based fantasy map editor with **no build step and no dependencies** - plain HTML, CSS
-and native ES modules. Start from a blank parchment ocean, paint continents with texture brushes,
-add rivers, roads, borders, labels, markers and a compass rose, then export a PNG or save a
-portable `.fmap` file.
+and native ES modules. Start from a blank blue ocean with a compass rose already in place, generate
+a landmass, scatter forests and mountains, add rivers, roads, borders, labels and markers, then
+export a PNG or save a portable `.fmap` file.
 
 Every texture is generated procedurally in JavaScript, so the repository contains no binary
 assets and the app works offline once loaded.
@@ -38,18 +38,19 @@ No workflow or build is required. Every asset path is relative, so the app works
 | Pan | `Space`+drag, middle-mouse drag, or the Hand tool (`H`) |
 | Fit the map | **Fit map** button |
 | Undo / redo | `Ctrl+Z`, `Ctrl+Y` or `Ctrl+Shift+Z`, or the toolbar buttons |
-| Tools | `B` brush, `S` scatter, `E` eraser, `T` text, `M` marker, `P` path, `C` compass, `V` select, `H` hand |
+| Tools | `S` scatter, `E` eraser, `T` text, `M` marker, `P` path, `C` compass, `V` select, `H` hand |
 | Delete selection | `Delete` or `Backspace`, or the inspector's Delete button |
 
-**Painting.** Pick a terrain layer under *Painting into*, then paint. Size, opacity and hardness
-are in Brush options. Each terrain type has its own raster layer with independent visibility,
-opacity and lock. Terrain layers are only allocated when you first paint into them.
+**Terrain layers.** Each terrain type (land, forest, mountains, hills, desert, swamp, city) has its
+own raster layer with independent visibility, opacity and lock, picked as the *Active layer* in the
+Layers panel. Layers are only allocated once something is drawn into them, by the terrain generator,
+the Scatter tool or the Eraser.
 
 **Scattering.** The Scatter tool (`S`) drops discrete symbols - broadleaf trees, pines, mountains,
 hills, dunes, marsh tufts, buildings - instead of smearing a texture. Set the element, the
 **density**, the cluster radius, and the element size and size variation; the panel shows roughly
 how many elements a single click will drop. Click for one cluster or drag to lay a band at the
-same density. Picking an element switches *Painting into* to the layer it belongs in, and because
+same density. Picking an element switches *Active layer* to the layer it belongs in, and because
 elements are baked into that layer the Eraser removes them like any other terrain.
 
 **Paths.** Click to place control points; `Enter` or double-click finishes; `Esc` cancels. To edit
@@ -58,14 +59,11 @@ remove it. Rivers taper from source to mouth, roads get a casing plus a dashed o
 borders use dash-dot. Any path can be drawn beneath the terrain layers.
 
 **Naming.** Markers and paths prompt for a name; leave it blank and you get something like
-*"Castle Belmiran"* from the built-in syllable generator. Terrain brushes have a *Name this stroke*
-option that adds a legend entry at the stroke's centroid. Legend entries can be renamed, hidden,
+*"Castle Belmiran"* from the built-in syllable generator. Legend entries can be renamed, hidden,
 reordered, deleted, and clicked to centre the view on them.
 
-**Custom textures and fonts.** Load PNG/JPEG files from Brush options or drop them onto the map to
-use them as brushes. Font files can be loaded in Text options and are registered at runtime. Both
-travel inside saved maps. To ship a texture pack with the site, drop images into `textures/` and
-list them in `textures/textures.json`.
+**Custom fonts.** Font files can be loaded in Text options and are registered at runtime with the
+`FontFace` API, so a loaded font travels inside saved maps and autosaves.
 
 **Lock.** The global lock stops edits but deliberately keeps panning, zooming, saving and
 exporting available, so a finished map stays browsable.
@@ -73,7 +71,7 @@ exporting available, so a finished map stays browsable.
 ## Saving and exporting
 
 - **Save / Load** downloads a portable `.fmap` file: title, size, view, terrain layer PNGs,
-  objects, legend, custom textures and fonts, grid settings and generator seed.
+  objects, legend, custom fonts, grid settings and generator seed.
 - **Autosave** writes to IndexedDB after each change and offers to restore your last session when
   you reopen the app. Raster data is never put in `localStorage`, which is only used for small UI
   preferences.
@@ -88,12 +86,11 @@ styles/             app.css (layout, chrome) and panels.css (side panels)
 src/main.js         entry point: input, tool registry, document actions, autosave
 src/state/          store, undo/redo command stack, IndexedDB persistence
 src/render/         compositor, view transform, layers, coastline, splines, grid, compass art
-src/brush/          procedural textures, stamp construction, stroke and scatter engines, symbols
+src/brush/          procedural textures, eraser stamp engine, scatter engine, symbols
 src/gen/            seeded RNG, noise, name generator, terrain generator
-src/tools/          paint, scatter, eraser, text, marker, path, compass, select, hand
+src/tools/          scatter, eraser, text, marker, path, compass, select, hand
 src/ui/             titlebar, toolbar, layers, grid, inspector, legend, dialogs
-src/io/             .fmap documents, PNG export, texture/font loading
-textures/           optional texture pack + manifest
+src/io/             .fmap documents, PNG export, font loading
 tests.html          zero-dependency test runner
 docs/architecture/  the architecture and implementation plan
 ```
@@ -103,13 +100,13 @@ The full design rationale is in
 
 ## Manual QA checklist
 
-- [ ] A fresh load shows an aged parchment ocean with faint wave hatching, and no land.
+- [ ] A fresh load shows a blue ocean with faint wave hatching, a default compass rose in the
+      bottom-right corner, and no land.
 - [ ] Wheel zoom stays centred on the cursor; `Space`+drag, middle-drag and pinch all pan/zoom.
 - [ ] **Fit map** frames the whole map at any window size; resizing the window never blanks it.
-- [ ] Painting works on every terrain layer; hardness visibly changes the edge feather.
 - [ ] Scatter drops elements at the configured density; a click matches the "per click" estimate,
       and dragging keeps the same density rather than piling up.
-- [ ] Picking a scatter element switches *Painting into* to its layer; the Eraser removes
+- [ ] Picking a scatter element switches *Active layer* to its layer; the Eraser removes
       scattered elements.
 - [ ] Layer visibility, opacity and lock each behave independently; a locked layer refuses strokes
       and says which layer refused.
@@ -125,12 +122,10 @@ The full design rationale is in
 - [ ] "Draw beneath terrain" moves a path under the forest/mountain layers.
 - [ ] Each grid style renders, coordinate labels appear, and the grid can be excluded from export.
 - [ ] Compass corner handles scale it and the rotation handle spins it; inspector numbers agree.
-- [ ] Custom PNG/JPEG textures load from the picker and by drag-and-drop; a `.txt` file is refused
-      with a readable message.
 - [ ] A loaded font appears in the text font list and renders on the map.
 - [ ] Export at 1x/2x/4x with each of title, legend and grid toggled produces the expected PNG.
-- [ ] Save a `.fmap`, reload the page, load it back: layers, objects, legend, textures, grid,
-      title and seed all survive.
+- [ ] Save a `.fmap`, reload the page, load it back: layers, objects, legend, grid, title and seed
+      all survive.
 - [ ] Reopening the app offers to restore the autosave; declining it starts clean.
 - [ ] With the map locked, editing is blocked but pan, zoom, save and export still work.
 - [ ] Every control is reachable by keyboard and shows a visible focus ring.

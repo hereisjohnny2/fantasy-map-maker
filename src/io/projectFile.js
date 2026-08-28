@@ -2,17 +2,16 @@
  * The portable `.fmap` project document.
  *
  * It is plain JSON: map metadata, the view, per-layer settings plus their PNG
- * data URLs, objects, legend, custom textures and fonts, grid configuration
- * and the generator seed. The same document shape is what autosave stores.
+ * data URLs, objects, legend, custom fonts, grid configuration and the
+ * generator seed. The same document shape is what autosave stores.
  */
-import { clearCustomTextures } from "../brush/textures.js";
 import { invalidateCoastline, rebuildCoastline } from "../render/coastline.js";
 import { getRaster, restoreRasters, serializeRasters } from "../render/layers.js";
 import { applyView, serializeView } from "../render/view.js";
 import {
   TERRAIN_LAYERS, createInitialState, emit, replaceState, state,
 } from "../state/store.js";
-import { restoreCustomFonts, restoreCustomTextures } from "./textureLoader.js";
+import { restoreCustomFonts } from "./textureLoader.js";
 
 export const FORMAT = "fantasy-map-maker";
 export const VERSION = 1;
@@ -51,10 +50,9 @@ export function serializeDocument() {
     rasters: serializeRasters(),
     objects: structuredClone(state.objects),
     legend: structuredClone(state.legend),
-    customTextures: structuredClone(state.customTextures),
     customFonts: structuredClone(state.customFonts),
     grid: { ...state.grid },
-    brush: { ...state.brush },
+    eraser: { ...state.eraser },
     marker: { ...state.marker },
     path: { ...state.path },
     compass: { ...state.compass },
@@ -84,10 +82,9 @@ export async function applyDocument(document) {
     activeLayer: TERRAIN_LAYERS.some((layer) => layer.id === document.activeLayer) ? document.activeLayer : "land",
     objects: Array.isArray(document.objects) ? document.objects : [],
     legend: Array.isArray(document.legend) ? document.legend : [],
-    customTextures: [],
     customFonts: [],
     grid: { ...fresh.grid, ...(document.grid ?? {}) },
-    brush: { ...fresh.brush, ...(document.brush ?? {}) },
+    eraser: { ...fresh.eraser, ...(document.eraser ?? {}) },
     marker: { ...fresh.marker, ...(document.marker ?? {}) },
     path: { ...fresh.path, ...(document.path ?? {}) },
     compass: { ...fresh.compass, ...(document.compass ?? {}) },
@@ -113,8 +110,6 @@ export async function applyDocument(document) {
 
   replaceState(next);
 
-  clearCustomTextures();
-  state.customTextures = await restoreCustomTextures(document.customTextures ?? []);
   state.customFonts = await restoreCustomFonts(document.customFonts ?? []);
 
   invalidateCoastline();

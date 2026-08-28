@@ -1,5 +1,5 @@
 /**
- * Stamp-based brush engine with tiled dirty-rect undo capture.
+ * Stamp-based eraser engine with tiled dirty-rect undo capture.
  *
  * Along the pointer path a stamp is placed every `size * 0.15` world units.
  * For undo we never copy the whole layer: the canvas is treated as a grid of
@@ -8,8 +8,7 @@
  */
 import { context2d, ensureRaster } from "../render/layers.js";
 import { markManuallyEdited } from "../state/store.js";
-import { buildStamp, eraserGradient } from "./stamp.js";
-import { resolveTexture } from "./textures.js";
+import { eraserGradient } from "./stamp.js";
 
 const TILE = 128;
 const SPACING_RATIO = 0.15;
@@ -17,7 +16,7 @@ const SPACING_RATIO = 0.15;
 /**
  * Lazily snapshots the 128 px tiles a raster operation touches, so undo costs
  * the area actually modified rather than a full-canvas copy. Shared by the
- * brush and the scatter tool.
+ * eraser and the scatter tool.
  */
 export class TileCapture {
   constructor(canvas) {
@@ -75,16 +74,13 @@ export class TileCapture {
 }
 
 class StrokeSession {
-  constructor({ layerId, erasing = false, size, opacity, hardness, textureId }) {
+  constructor({ layerId, size, opacity, hardness }) {
     this.layerId = layerId;
-    this.erasing = erasing;
     this.size = Math.max(1, size);
     this.opacity = Math.min(1, Math.max(0.01, opacity));
     this.hardness = Math.min(1, Math.max(0, hardness));
-    this.textureId = textureId;
     this.canvas = ensureRaster(layerId);
     this.ctx = context2d(this.canvas);
-    this.texture = erasing ? null : resolveTexture(textureId, layerId);
     this.capture = new TileCapture(this.canvas);
     this.points = [];
     this.last = null;
@@ -114,24 +110,12 @@ class StrokeSession {
     this.capture.capture(point.x, point.y, radius + 2);
     this.#growBounds(point.x, point.y, radius + 2);
     this.ctx.save();
-    if (this.erasing) {
-      this.ctx.globalCompositeOperation = "destination-out";
-      this.ctx.globalAlpha = this.opacity;
-      this.ctx.fillStyle = eraserGradient(this.ctx, point.x, point.y, radius, this.hardness);
-      this.ctx.beginPath();
-      this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-      this.ctx.fill();
-    } else {
-      const stamp = buildStamp({
-        texture: this.texture,
-        diameter: this.size,
-        hardness: this.hardness,
-        worldX: point.x,
-        worldY: point.y,
-      });
-      this.ctx.globalAlpha = this.opacity;
-      this.ctx.drawImage(stamp, point.x - radius, point.y - radius, this.size, this.size);
-    }
+    this.ctx.globalCompositeOperation = "destination-out";
+    this.ctx.globalAlpha = this.opacity;
+    this.ctx.fillStyle = eraserGradient(this.ctx, point.x, point.y, radius, this.hardness);
+    this.ctx.beginPath();
+    this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
     this.ctx.restore();
     this.painted = true;
   }
@@ -166,18 +150,18 @@ class StrokeSession {
 
   /**
    * Close the stroke and produce an undo command holding only the touched
-   * tiles. Returns null when the stroke painted nothing.
+   * tiles. Returns null when the stroke erased nothing.
    */
   finish({ onRestore } = {}) {
     if (!this.painted) return null;
     markManuallyEdited();
-    const command = this.capture.toCommand(this.erasing ? "Erase" : "Paint stroke", this.layerId, onRestore);
+    const command = this.capture.toCommand("Erase", this.layerId, onRestore);
     if (!command) return null;
     return { command, points: this.points, bounds: this.bounds };
   }
 }
 
-/** Start a stroke. Returns the session used for the rest of the drag. */
+/** Start an eraser stroke. Returns the session used for the rest of the drag. */
 export function beginStroke(options, point) {
   const session = new StrokeSession(options);
   session.begin(point);

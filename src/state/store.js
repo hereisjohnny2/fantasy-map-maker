@@ -52,6 +52,25 @@ function defaultLayers() {
   return TERRAIN_LAYERS.map((layer) => ({ ...layer, visible: true, opacity: 1, locked: false }));
 }
 
+/** Every fresh map starts with a compass rose already placed in the corner. */
+function defaultObjects() {
+  return [
+    {
+      id: "compass-default",
+      type: "compass",
+      x: DEFAULT_MAP.width - 170,
+      y: DEFAULT_MAP.height - 170,
+      style: "points8",
+      size: 90,
+      rotation: 0,
+      color: "#3a2a19",
+      alpha: 0.92,
+      letters: true,
+      visible: true,
+    },
+  ];
+}
+
 export function createInitialState() {
   return {
     map: {
@@ -66,9 +85,8 @@ export function createInitialState() {
     },
     layers: defaultLayers(),
     activeLayer: "land",
-    objects: [],
+    objects: defaultObjects(),
     legend: [],
-    customTextures: [],
     customFonts: [],
     grid: {
       style: "none",
@@ -81,13 +99,13 @@ export function createInitialState() {
       labels: false,
       includeInExport: true,
     },
-    brush: { textureId: "auto", size: 90, opacity: 0.85, hardness: 0.55, nameStroke: false },
+    eraser: { size: 90, opacity: 0.85, hardness: 0.55 },
     scatter: { symbol: "tree", radius: 130, density: 12, size: 30, jitter: 0.45 },
     marker: { type: "city", size: 44 },
     path: { preset: "river" },
     compass: { style: "points8" },
     text: { font: "Georgia", size: 36 },
-    tool: "paint",
+    tool: "select",
     selectedId: null,
     locked: false,
   };

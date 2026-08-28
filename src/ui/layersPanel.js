@@ -1,7 +1,7 @@
 /**
  * Layers panel: fixed terrain order with per-layer visibility, opacity and
- * lock, plus the "painting into" selector. Layers that have never been painted
- * are shown dimmed, which makes the lazy allocation visible to the user.
+ * lock, plus the active-layer selector. Layers that have never been drawn
+ * into are shown dimmed, which makes the lazy allocation visible to the user.
  */
 import { hasPixels } from "../render/layers.js";
 import { requestRender } from "../render/renderer.js";
@@ -29,11 +29,11 @@ function layerRow(layer) {
   name.type = "button";
   name.className = "layer-name";
   name.textContent = layer.label;
-  name.title = `Paint into ${layer.label}`;
+  name.title = `Set ${layer.label} as the active layer`;
   name.addEventListener("click", () => {
     state.activeLayer = layer.id;
     renderLayersPanel();
-    setStatus(`Painting into ${layer.label}.`);
+    setStatus(`${layer.label} is now the active layer.`);
   });
 
   const lock = document.createElement("button");
