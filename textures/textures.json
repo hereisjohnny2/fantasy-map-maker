@@ -1,0 +1,4 @@
+{
+  "$comment": "Optional texture pack. Drop PNG or JPEG files into this folder and list them here; the app loads them into the brush texture picker at startup. An empty list is normal - every default texture is generated procedurally.",
+  "textures": []
+}

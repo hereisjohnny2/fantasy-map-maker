@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A zero-dependency browser fantasy map editor.">
+  <title>Fantasy Map Maker</title>
+  <link rel="stylesheet" href="./styles/app.css">
+  <link rel="stylesheet" href="./styles/panels.css">
+</head>
+<body>
+  <header class="titlebar">
+    <span class="brand">Fantasy Map Maker</span>
+    <label class="visually-hidden" for="map-title">Map title</label>
+    <input id="map-title" class="map-title" value="Untitled Realm" maxlength="120" autocomplete="off">
+    <div class="titlebar-actions">
+      <button id="action-new" type="button">New</button>
+      <button id="action-reset" type="button">Reset</button>
+      <button id="action-size" type="button">Map size</button>
+      <button id="action-project" type="button">Save / Load</button>
+      <button id="action-export" type="button">Export PNG</button>
+      <button id="action-lock" type="button" aria-pressed="false">Lock map</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar" aria-label="Tools and options">
+      <section>
+        <h2 id="tools-heading">Tools</h2>
+        <div class="tool-grid" role="toolbar" aria-labelledby="tools-heading">
+          <button class="tool" data-tool="paint" type="button" aria-pressed="true">Brush <kbd>B</kbd></button>
+          <button class="tool" data-tool="scatter" type="button" aria-pressed="false">Scatter <kbd>S</kbd></button>
+          <button class="tool" data-tool="eraser" type="button" aria-pressed="false">Eraser <kbd>E</kbd></button>
+          <button class="tool" data-tool="text" type="button" aria-pressed="false">Text <kbd>T</kbd></button>
+          <button class="tool" data-tool="marker" type="button" aria-pressed="false">Marker <kbd>M</kbd></button>
+          <button class="tool" data-tool="path" type="button" aria-pressed="false">Path <kbd>P</kbd></button>
+          <button class="tool" data-tool="compass" type="button" aria-pressed="false">Compass <kbd>C</kbd></button>
+          <button class="tool" data-tool="select" type="button" aria-pressed="false">Select <kbd>V</kbd></button>
+          <button class="tool" data-tool="hand" type="button" aria-pressed="false">Hand <kbd>H</kbd></button>
+        </div>
+      </section>
+
+      <section data-tool-options="paint eraser">
+        <h2>Brush options</h2>
+        <label for="brush-texture">Texture</label>
+        <select id="brush-texture"></select>
+        <label for="brush-size">Size <output id="brush-size-value">90 px</output></label>
+        <input id="brush-size" type="range" min="4" max="600" step="1" value="90">
+        <label for="brush-opacity">Opacity <output id="brush-opacity-value">85%</output></label>
+        <input id="brush-opacity" type="range" min="1" max="100" step="1" value="85">
+        <label for="brush-hardness">Hardness <output id="brush-hardness-value">55%</output></label>
+        <input id="brush-hardness" type="range" min="0" max="100" step="1" value="55">
+        <p class="check"><input id="brush-name-stroke" type="checkbox"><label for="brush-name-stroke">Name this stroke</label></p>
+        <p class="file-row">
+          <label class="file-button" for="texture-files">Load texture files
+            <input id="texture-files" type="file" accept="image/png,image/jpeg" multiple>
+          </label>
+        </p>
+        <p class="hint">PNG or JPEG files can also be dropped straight onto the map.</p>
+      </section>
+
+      <section data-tool-options="scatter" hidden>
+        <h2>Scatter options</h2>
+        <label for="scatter-symbol">Element</label>
+        <select id="scatter-symbol"></select>
+        <label for="scatter-density">Density <output id="scatter-density-value">12</output></label>
+        <input id="scatter-density" type="range" min="1" max="60" step="1" value="12">
+        <label for="scatter-radius">Cluster radius <output id="scatter-radius-value">130 px</output></label>
+        <input id="scatter-radius" type="range" min="20" max="600" step="5" value="130">
+        <label for="scatter-size">Element size <output id="scatter-size-value">30 px</output></label>
+        <input id="scatter-size" type="range" min="4" max="140" step="1" value="30">
+        <label for="scatter-jitter">Size variation <output id="scatter-jitter-value">45%</output></label>
+        <input id="scatter-jitter" type="range" min="0" max="100" step="1" value="45">
+        <p id="scatter-estimate" class="hint"></p>
+        <p class="hint">Click to drop one cluster, or drag to lay a band at the same density. Elements bake into the layer shown under <em>Painting into</em>, so the Eraser removes them.</p>
+      </section>
+
+      <section data-tool-options="marker" hidden>
+        <h2>Marker options</h2>
+        <label for="marker-type">Structure</label>
+        <select id="marker-type"></select>
+        <label for="marker-size">Size <output id="marker-size-value">44 px</output></label>
+        <input id="marker-size" type="range" min="10" max="160" step="1" value="44">
+      </section>
+
+      <section data-tool-options="path" hidden>
+        <h2>Path options</h2>
+        <label for="path-preset">Preset</label>
+        <select id="path-preset">
+          <option value="river">River</option>
+          <option value="road">Road</option>
+          <option value="border">Border</option>
+        </select>
+        <p class="hint">Click to place points. <kbd>Enter</kbd> or double-click finishes, <kbd>Esc</kbd> cancels. Drag a point to move it, click a segment to insert one, <kbd>Alt</kbd>+click a point to delete it.</p>
+      </section>
+
+      <section data-tool-options="compass" hidden>
+        <h2>Compass options</h2>
+        <label for="compass-style">Style</label>
+        <select id="compass-style">
+          <option value="simple4">Simple 4-point</option>
+          <option value="points8" selected>8-point with letters</option>
+          <option value="ornate16">Ornate 16-point</option>
+        </select>
+      </section>
+
+      <section data-tool-options="text" hidden>
+        <h2>Text options</h2>
+        <label for="text-font">Font</label>
+        <select id="text-font"></select>
+        <label for="text-size">Size <output id="text-size-value">36 px</output></label>
+        <input id="text-size" type="range" min="8" max="240" step="1" value="36">
+        <p class="file-row">
+          <label class="file-button" for="font-file">Load a font file
+            <input id="font-file" type="file" accept=".ttf,.otf,.woff,.woff2">
+          </label>
+        </p>
+      </section>
+
+      <section>
+        <h2>Terrain generator</h2>
+        <button id="action-generate" type="button" class="wide">Generate landmass&hellip;</button>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <div class="button-row">
+          <button id="action-fit" type="button">Fit map</button>
+          <button id="action-zoom-in" type="button">Zoom in</button>
+          <button id="action-zoom-out" type="button">Zoom out</button>
+          <button id="action-undo" type="button" disabled>Undo</button>
+          <button id="action-redo" type="button" disabled>Redo</button>
+        </div>
+        <p class="hint">Wheel zooms at the cursor. <kbd>Space</kbd>+drag or middle-drag pans. Two fingers pinch to zoom.</p>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite">Ready.</p>
+    </aside>
+
+    <section class="workspace">
+      <div id="stage" class="stage">
+        <canvas id="map" tabindex="0" aria-label="Map canvas"></canvas>
+        <div id="text-overlay" class="text-overlay" hidden>
+          <label class="visually-hidden" for="text-input">Label text</label>
+          <textarea id="text-input" rows="2" spellcheck="false"></textarea>
+          <div class="overlay-actions">
+            <button id="text-cancel" type="button">Cancel</button>
+            <button id="text-apply" type="button">Apply</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar" aria-label="Map panels">
+      <section>
+        <h2>Layers</h2>
+        <div id="layers-panel" class="layers"></div>
+        <label for="active-layer">Painting into</label>
+        <select id="active-layer"></select>
+      </section>
+
+      <section>
+        <h2>Inspector</h2>
+        <div id="inspector"></div>
+      </section>
+
+      <section>
+        <h2>Grid overlay</h2>
+        <label for="grid-style">Style</label>
+        <select id="grid-style">
+          <option value="none" selected>None</option>
+          <option value="square">Square</option>
+          <option value="hex-pointy">Pointy-top hex</option>
+          <option value="hex-flat">Flat-top hex</option>
+        </select>
+        <div class="pair">
+          <span><label for="grid-size">Cell size</label><input id="grid-size" type="number" min="8" max="2000" step="1" value="160"></span>
+          <span><label for="grid-width">Line width</label><input id="grid-width" type="number" min="0.25" max="12" step="0.25" value="1"></span>
+        </div>
+        <div class="pair">
+          <span><label for="grid-offset-x">Offset X</label><input id="grid-offset-x" type="number" step="1" value="0"></span>
+          <span><label for="grid-offset-y">Offset Y</label><input id="grid-offset-y" type="number" step="1" value="0"></span>
+        </div>
+        <div class="pair">
+          <span><label for="grid-color">Color</label><input id="grid-color" type="color" value="#5d4526"></span>
+          <span><label for="grid-alpha">Alpha <output id="grid-alpha-value">45%</output></label><input id="grid-alpha" type="range" min="0" max="100" value="45"></span>
+        </div>
+        <p class="check"><input id="grid-labels" type="checkbox"><label for="grid-labels">Coordinate labels</label></p>
+        <p class="check"><input id="grid-export" type="checkbox" checked><label for="grid-export">Include in PNG export</label></p>
+      </section>
+
+      <section>
+        <h2>Legend</h2>
+        <div id="legend-panel" class="legend"></div>
+      </section>
+    </aside>
+  </main>
+
+  <dialog id="dialog-generator">
+    <form method="dialog">
+      <h2>Generate landmass</h2>
+      <label for="gen-seed">Seed</label>
+      <div class="pair-tight">
+        <input id="gen-seed" value="eldoria" maxlength="64" autocomplete="off">
+        <button id="gen-shuffle" type="button">Shuffle</button>
+      </div>
+      <label for="gen-land">Land amount <output id="gen-land-value">45%</output></label>
+      <input id="gen-land" type="range" min="15" max="85" value="45">
+      <label for="gen-roughness">Roughness <output id="gen-roughness-value">55%</output></label>
+      <input id="gen-roughness" type="range" min="0" max="100" value="55">
+      <p class="hint">The same seed and settings always rebuild the same continents. Generating replaces every terrain layer.</p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button id="gen-run" value="generate" type="button" class="primary">Generate</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dialog-project">
+    <form method="dialog">
+      <h2>Save or load</h2>
+      <p class="hint">A <code>.fmap</code> file stores the title, size, view, terrain rasters, objects, legend, custom textures, grid and seed.</p>
+      <menu>
+        <button value="cancel">Close</button>
+        <label class="file-button" for="project-file">Load .fmap
+          <input id="project-file" type="file" accept=".fmap,application/json">
+        </label>
+        <button id="project-save" value="save" type="button" class="primary">Download .fmap</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dialog-export">
+    <form method="dialog">
+      <h2>Export PNG</h2>
+      <label for="export-scale">Resolution</label>
+      <select id="export-scale">
+        <option value="1">1x</option>
+        <option value="2" selected>2x</option>
+        <option value="4">4x</option>
+      </select>
+      <p class="check"><input id="export-title" type="checkbox" checked><label for="export-title">Title banner</label></p>
+      <p class="check"><input id="export-legend" type="checkbox" checked><label for="export-legend">Legend box</label></p>
+      <p class="check"><input id="export-grid" type="checkbox" checked><label for="export-grid">Grid overlay</label></p>
+      <p id="export-estimate" class="hint"></p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button id="export-run" value="export" type="button" class="primary">Download PNG</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dialog-size">
+    <form method="dialog">
+      <h2>Map size</h2>
+      <label for="size-preset">Preset</label>
+      <select id="size-preset"></select>
+      <div class="pair">
+        <span><label for="size-width">Width</label><input id="size-width" type="number" min="256" max="8192" step="1" value="2048"></span>
+        <span><label for="size-height">Height</label><input id="size-height" type="number" min="256" max="8192" step="1" value="1536"></span>
+      </div>
+      <p class="hint">Existing artwork is rescaled into the new size.</p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button id="size-apply" value="apply" type="button" class="primary">Apply size</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dialog-restore">
+    <form method="dialog">
+      <h2>Restore last session?</h2>
+      <p id="restore-detail" class="hint"></p>
+      <menu>
+        <button id="restore-discard" value="discard" type="button">Start fresh</button>
+        <button id="restore-accept" value="restore" type="button" class="primary">Restore</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

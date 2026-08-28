@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fantasy Map Maker tests</title>
+  <style>
+    body { max-width: 780px; margin: 2.5rem auto; padding: 0 1rem; color: #2f2617; background: #f4ead1; font: 16px/1.5 Georgia, serif; }
+    h1 { margin-bottom: .25rem; }
+    #summary { font-weight: bold; }
+    #summary[data-state="fail"] { color: #8d2b20; }
+    #summary[data-state="pass"] { color: #2d6b33; }
+    ol { padding-left: 1.4rem; }
+    li { margin: .2rem 0; }
+    .pass { color: #2d6b33; }
+    .fail { color: #8d2b20; }
+    code { background: #e5d5ae; padding: 0 .25rem; }
+  </style>
+</head>
+<body>
+  <h1>Fantasy Map Maker tests</h1>
+  <p>Zero-dependency checks for the pure modules: seeded RNG, noise, name generation, spline maths, grid labels and the history stack. Serve this file over HTTP, not <code>file://</code>.</p>
+  <p id="summary">Running...</p>
+  <ol id="results"></ol>
+
+  <script type="module">
+    import { createRng, hashSeed, mulberry32, pick } from "./src/gen/rng.js";
+    import { fbm, periodicFbm, periodicNoise, valueNoise } from "./src/gen/noise.js";
+    import { generateName, resolveName, titleCase } from "./src/gen/nameGen.js";
+    import { catmullRomToBezier, centroidOf, distanceToSegment, hitControlPoint, samplePath, wobbleSamples } from "./src/render/spline.js";
+    import { columnLabel, withAlpha } from "./src/render/gridOverlay.js";
+    import { CommandStack } from "./src/state/history.js";
+
+    const results = document.getElementById("results");
+    const summary = document.getElementById("summary");
+    let passed = 0;
+    let failed = 0;
+
+    function test(name, body) {
+      const item = document.createElement("li");
+      try {
+        body();
+        passed += 1;
+        item.className = "pass";
+        item.textContent = `PASS  ${name}`;
+      } catch (error) {
+        failed += 1;
+        item.className = "fail";
+        item.textContent = `FAIL  ${name} - ${error.message}`;
+      }
+      results.append(item);
+    }
+
+    function assert(condition, message) {
+      if (!condition) throw new Error(message ?? "assertion failed");
+    }
+
+    function equal(actual, expected, message = "values differ") {
+      if (actual !== expected) throw new Error(`${message}: expected ${expected}, got ${actual}`);
+    }
+
+    function close(actual, expected, tolerance, message = "value out of tolerance") {
+      if (Math.abs(actual - expected) > tolerance) {
+        throw new Error(`${message}: expected ${expected} +/- ${tolerance}, got ${actual}`);
+      }
+    }
+
+    /* ------------------------------------------------------------- rng */
+
+    test("hashSeed is stable and unsigned", () => {
+      equal(hashSeed("eldoria"), hashSeed("eldoria"));
+      assert(hashSeed("eldoria") >= 0, "hash must be unsigned");
+      assert(hashSeed("eldoria") !== hashSeed("eldorib"), "different seeds must differ");
+    });
+
+    test("seeded RNG replays the same sequence", () => {
+      const a = createRng("eldoria");
+      const b = createRng("eldoria");
+      for (let index = 0; index < 24; index += 1) equal(a(), b());
+    });
+
+    test("seeded RNG stays in [0, 1) and differs across seeds", () => {
+      const rng = createRng("range-check");
+      for (let index = 0; index < 500; index += 1) {
+        const value = rng();
+        assert(value >= 0 && value < 1, `value ${value} out of range`);
+      }
+      assert(createRng("a")() !== createRng("b")(), "distinct seeds should diverge");
+    });
+
+    test("mulberry32 is uniform enough for terrain thresholds", () => {
+      const rng = mulberry32(12345);
+      let total = 0;
+      const samples = 20000;
+      for (let index = 0; index < samples; index += 1) total += rng();
+      close(total / samples, 0.5, 0.02, "mean should be near 0.5");
+    });
+
+    test("pick always returns a member of the array", () => {
+      const rng = createRng("pick");
+      const items = ["a", "b", "c"];
+      for (let index = 0; index < 50; index += 1) assert(items.includes(pick(rng, items)));
+    });
+
+    /* ----------------------------------------------------------- noise */
+
+    test("value noise is deterministic and normalised", () => {
+      const a = valueNoise(3.25, 8.5, 99);
+      equal(a, valueNoise(3.25, 8.5, 99));
+      assert(a >= 0 && a <= 1, "noise must stay in [0, 1]");
+    });
+
+    test("fbm is deterministic and normalised", () => {
+      const a = fbm(1.5, 2.5, 4242, 5, 0.5);
+      equal(a, fbm(1.5, 2.5, 4242, 5, 0.5));
+      assert(a >= 0 && a <= 1, "fbm must stay in [0, 1]");
+    });
+
+    test("periodic noise wraps exactly at its period", () => {
+      const period = 6;
+      close(periodicNoise(0.35, 1.2, period, period, 7), periodicNoise(0.35 + period, 1.2, period, period, 7), 1e-12, "x wrap");
+      close(periodicNoise(0.35, 1.2, period, period, 7), periodicNoise(0.35, 1.2 + period, period, period, 7), 1e-12, "y wrap");
+    });
+
+    test("periodic fbm tiles, which is what makes textures seamless", () => {
+      const period = 6;
+      close(periodicFbm(0.8, 2.1, period, 11, 4, 0.55), periodicFbm(0.8 + period, 2.1, period, 11, 4, 0.55), 1e-12);
+    });
+
+    /* ------------------------------------------------------ name gen */
+
+    test("generated names are seeded and capitalised", () => {
+      const first = generateName(createRng("names"));
+      equal(first, generateName(createRng("names")));
+      assert(/^[A-Z][a-z]+$/.test(first), `unexpected name shape: ${first}`);
+    });
+
+    test("blank input becomes '<Type> <Name>'", () => {
+      const auto = resolveName("castle", "   ", createRng("auto"));
+      assert(auto.startsWith("Castle "), `expected a Castle name, got ${auto}`);
+      assert(auto.split(" ").length === 2, "auto name should be two words");
+    });
+
+    test("typed names are kept verbatim", () => {
+      equal(resolveName("city", "  Highport  ", createRng("x")), "Highport");
+    });
+
+    test("titleCase handles hyphenated ids", () => {
+      equal(titleCase("hex-pointy"), "Hex Pointy");
+    });
+
+    /* -------------------------------------------------------- spline */
+
+    test("Catmull-Rom conversion preserves endpoints", () => {
+      const points = [{ x: 0, y: 0 }, { x: 30, y: 20 }, { x: 70, y: 10 }];
+      const curves = catmullRomToBezier(points);
+      equal(curves.length, 2);
+      equal(curves[0].from.x, 0);
+      equal(curves[0].from.y, 0);
+      equal(curves[1].to.x, 70);
+      equal(curves[1].to.y, 10);
+    });
+
+    test("a two-point spline is a single segment", () => {
+      equal(catmullRomToBezier([{ x: 0, y: 0 }, { x: 10, y: 0 }]).length, 1);
+      equal(catmullRomToBezier([{ x: 0, y: 0 }]).length, 0);
+    });
+
+    test("sampling keeps the ends and follows a straight line", () => {
+      const samples = samplePath([{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 100, y: 0 }], 10);
+      assert(samples.length > 3, "expected multiple samples");
+      close(samples[0].x, 0, 1e-9);
+      close(samples.at(-1).x, 100, 1e-9);
+      for (const sample of samples) close(sample.y, 0, 1e-9, "straight line must not bend");
+    });
+
+    test("wobble offsets the middle but pins the ends", () => {
+      const straight = samplePath([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 200, y: 0 }], 10);
+      const wobbled = wobbleSamples(straight, 6, "river-1");
+      close(wobbled[0].x, straight[0].x, 1e-9, "start must not move");
+      close(wobbled.at(-1).x, straight.at(-1).x, 1e-9, "end must not move");
+      const moved = wobbled.some((sample, index) => Math.abs(sample.y - straight[index].y) > 0.5);
+      assert(moved, "wobble should displace intermediate samples");
+      const repeat = wobbleSamples(straight, 6, "river-1");
+      equal(JSON.stringify(wobbled), JSON.stringify(repeat), "wobble must be seeded");
+    });
+
+    test("zero wobble is a no-op", () => {
+      const straight = samplePath([{ x: 0, y: 0 }, { x: 100, y: 0 }], 10);
+      equal(JSON.stringify(wobbleSamples(straight, 0, "s")), JSON.stringify(straight));
+    });
+
+    test("point-to-segment distance handles the perpendicular and the ends", () => {
+      close(distanceToSegment({ x: 5, y: 4 }, { x: 0, y: 0 }, { x: 10, y: 0 }), 4, 1e-9);
+      close(distanceToSegment({ x: -3, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }), 3, 1e-9);
+      close(distanceToSegment({ x: 2, y: 2 }, { x: 1, y: 1 }, { x: 1, y: 1 }), Math.hypot(1, 1), 1e-9);
+    });
+
+    test("control point hit-testing respects the tolerance", () => {
+      const points = [{ x: 0, y: 0 }, { x: 50, y: 50 }];
+      equal(hitControlPoint(points, { x: 52, y: 51 }, 5), 1);
+      equal(hitControlPoint(points, { x: 200, y: 200 }, 5), -1);
+    });
+
+    test("centroid averages the points", () => {
+      const centre = centroidOf([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 9 }]);
+      close(centre.x, 5, 1e-9);
+      close(centre.y, 3, 1e-9);
+    });
+
+    /* ---------------------------------------------------------- grid */
+
+    test("square grid labels follow the spreadsheet scheme", () => {
+      equal(columnLabel(0), "A");
+      equal(columnLabel(25), "Z");
+      equal(columnLabel(26), "AA");
+      equal(columnLabel(27), "AB");
+    });
+
+    test("withAlpha expands both hex forms", () => {
+      equal(withAlpha("#ff8000", 0.5), "rgba(255, 128, 0, 0.5)");
+      equal(withAlpha("#fff", 1), "rgba(255, 255, 255, 1)");
+    });
+
+    /* ------------------------------------------------------- history */
+
+    test("history undoes and redoes in both directions", () => {
+      const stack = new CommandStack();
+      let value = 0;
+      stack.push({ label: "set 1", undo: () => { value = 0; }, redo: () => { value = 1; } });
+      value = 1;
+      assert(stack.canUndo && !stack.canRedo);
+      stack.undo();
+      equal(value, 0);
+      assert(stack.canRedo, "redo should be available after undo");
+      stack.redo();
+      equal(value, 1);
+    });
+
+    test("a new command clears the redo branch", () => {
+      const stack = new CommandStack();
+      stack.push({ label: "a", undo() {}, redo() {} });
+      stack.undo();
+      assert(stack.canRedo);
+      stack.push({ label: "b", undo() {}, redo() {} });
+      assert(!stack.canRedo, "pushing must drop the redo branch");
+    });
+
+    test("history evicts by entry count", () => {
+      const stack = new CommandStack({ limit: 3 });
+      for (let index = 0; index < 6; index += 1) stack.push({ label: `op${index}`, undo() {}, redo() {} });
+      equal(stack.undoStack.length, 3);
+      equal(stack.undoStack[0].label, "op3");
+    });
+
+    test("history evicts by byte budget", () => {
+      const stack = new CommandStack({ limit: 100, byteBudget: 1000 });
+      for (let index = 0; index < 5; index += 1) {
+        stack.push({ label: `big${index}`, bytes: 400, undo() {}, redo() {} });
+      }
+      assert(stack.bytes <= 1000, `budget exceeded: ${stack.bytes}`);
+      assert(stack.undoStack.length < 5, "oldest entries should have been dropped");
+    });
+
+    test("undo and redo on an empty stack are safe", () => {
+      const stack = new CommandStack();
+      equal(stack.undo(), null);
+      equal(stack.redo(), null);
+    });
+
+    test("a malformed command is rejected", () => {
+      const stack = new CommandStack();
+      let threw = false;
+      try {
+        stack.push({ label: "bad" });
+      } catch {
+        threw = true;
+      }
+      assert(threw, "push should reject a command without undo/redo");
+    });
+
+    summary.textContent = `${passed} passed, ${failed} failed`;
+    summary.dataset.state = failed ? "fail" : "pass";
+  </script>
+</body>
+</html>
